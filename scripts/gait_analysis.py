@@ -16,6 +16,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 
 h = btk.btkReadAcquisition(str(c3d_file))
 
+
 # Variables
 markers, markersInfo = btk.btkGetMarkers(h) # markers
 fpw = btk.btkGetForcePlatformWrenches(h) # force platform wrenches

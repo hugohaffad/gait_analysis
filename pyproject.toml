@@ -1,0 +1,12 @@
+[project]
+name = "gait-analysis"
+version = "0.1.0"
+author = "Hugo HAFFAD"
+requires-python = ">=3.13"
+dependencies = [
+    "matplotlib>=3.10.7",
+    "moveck-bridge-btk>=2025.3.2",
+    "notebook>=7.5.0",
+    "numpy>=2.3.5",
+    "pathlib>=1.0.1",
+]

@@ -1,5 +1,8 @@
 # Packages
 from pathlib import Path
+
+from fontTools.misc.roundTools import roundFunc
+
 from config import DATA, REP
 import moveck_bridge_btk as btk
 import matplotlib.pyplot as plt
@@ -7,7 +10,7 @@ import numpy as np
 
 # Directories
 data_dir = Path(DATA)
-c3d_file = data_dir / "Hugo05.c3d" # Insert filename
+c3d_file = data_dir / "Hugo01.c3d" # Insert filename
 filename = c3d_file.stem
 output_dir = Path(REP / filename)
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -53,14 +56,17 @@ mrk_pairs = [
     ("PIED_G", "PIED_D")
 ]
 
+HS_time = []
+L_step_length = []
+R_step_length = []
+stride_length = []
+
 # Gait cycle identification
 for i in range(len(forceplates)) :
     if np.count_nonzero(fpw[i]["F"][:,2]) > 0 :
         continue
     else:
         print(f" force platform {i} non-used")
-
-HS_time = []
 
 plt.figure()
 for i in range(len(forceplates)-1):
@@ -82,10 +88,51 @@ plt.grid(True)
 plt.savefig(str(output_dir / "gait_cycle_identification.png"))
 plt.close()
 
-# Positions
-# You have to choose the right platforms !!
+# Spatiotemporal parameters
+## step_length
+for i in range(0, len(forceplates)-1):
+    grf_z = fpw[i]["F"][:,2]
+    index = np.where(grf_z > 20)[0][0] # index of the 1st frame at which GRFz > 0
+    HS = index/fp_freq
+    HS_time.append(HS)
+HS_frames = (np.array(HS_time) * freq).round().astype(int)
+
+for i in range(len(forceplates)-1):
+    step_length = abs(markers["CHEVILLE_D"][HS_frames[i], 1] - markers["CHEVILLE_G"][HS_frames[i], 1])
+    if markers["CHEVILLE_D"][HS_frames[i], 1] > markers["CHEVILLE_G"][HS_frames[i], 1]:
+        R_step_length.append(step_length)
+    else:
+        L_step_length.append(step_length)
+print(f"Longueur moyenne du pas gauche : {np.mean(L_step_length)} mm")
+print(f"Longueur moyenne du pas droit : {np.mean(R_step_length)} mm")
+
+## stride_length
+for i in range(min(len(R_step_length), len(L_step_length))):
+    stride_length.append(R_step_length[i] + L_step_length[i])
+print(f"Mean stride Length : {np.mean(stride_length)} mm")
+
+## cadence
 HS_time = []
-grfz0 = fpw[0]["F"][:,2]
+for i in range(0, len(forceplates)-1):
+    grf_z = fpw[i]["F"][:,2]
+    index = np.where(grf_z > 20)[0][0]
+    HS = index/fp_freq
+    HS_time.append(HS)
+HS_time = np.array(HS_time)
+HS_time = np.sort(HS_time)
+step_durations = np.diff(HS_time)
+mean_step_time = step_durations.mean()
+cadence = round(60/mean_step_time,0)
+print(f"Cadence : {cadence} pas/min")
+
+## vitesse
+vitesse = round(((np.mean(stride_length)/1000)*cadence)/120,2)
+print(f"vitesse de marche : {vitesse} m/s")
+
+# Kinematics
+## Positions
+HS_time = []
+grfz0 = fpw[0]["F"][:,2] # You have to choose the right platforms !!
 #grfz1 = fpw[1]["F"][:,2]
 grfz2 = fpw[2]["F"][:,2]
 #grfz3 = fpw[3]["F"][:,2]
@@ -99,8 +146,8 @@ start_frame, end_frame = HS_frames
 cycle_index = np.arange(start_frame, end_frame + 1)
 
 for i, (gauche, droite) in enumerate(mrk_pairs):
-    x_perc, right_norm = normalize_cycle(markers[gauche][:, 2], cycle_index)
-    x_perc, left_norm  = normalize_cycle(markers[droite][:, 2],  cycle_index)
+    x_perc, left_norm = normalize_cycle(markers[gauche][:, 2], cycle_index)
+    x_perc, right_norm = normalize_cycle(markers[droite][:, 2],  cycle_index)
 
     plt.figure()
     plt.plot(x_perc, left_norm, label=f"{gauche}")
@@ -113,7 +160,6 @@ for i, (gauche, droite) in enumerate(mrk_pairs):
     plt.savefig(str(output_dir / f"position_{i}.png"))
     plt.close()
 
-# Inverse kinematics
 ## Angles
 left_hip = []
 right_hip = []
@@ -176,3 +222,5 @@ for i, (gauche, droite) in enumerate(agl_pairs):
     plt.grid(True)
     plt.savefig(str(output_dir / f"angle_{i}.png"))
     plt.close()
+
+# Kinetics

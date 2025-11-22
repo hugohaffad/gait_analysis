@@ -1,5 +1,7 @@
 .idea/
+scripts/__pycache__/
 __pycache__/
+reports/.DS_Store
 .DS_Store
 uv.lock
 ~$apport.docx

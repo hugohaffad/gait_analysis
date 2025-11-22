@@ -1,8 +1,6 @@
 # Packages
 from pathlib import Path
 from config import DATA, REP
-from functions import angle_between
-
 import moveck_bridge_btk as btk
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,16 +12,39 @@ filename = c3d_file.stem
 output_dir = Path(REP / filename)
 output_dir.mkdir(parents=True, exist_ok=True)
 
-h = btk.btkReadAcquisition(str(c3d_file))
+# Functions
+def angle_between(u, v):
+    num = np.dot(u, v)
+    den = np.linalg.norm(u) * np.linalg.norm(v)
+    cos_theta = num / den
+    cos_theta = np.clip(cos_theta, -1, 1)
+    return np.rad2deg(np.arccos(cos_theta))
 
+def normalize_cycle(signal, idx, n_points=101):
+    sig_cycle = signal[idx]
+    n = len(sig_cycle)
+
+    x_old = np.linspace(0, 100, n)
+    x_new = np.linspace(0, 100, n_points)
+
+    sig_norm = np.interp(x_new, x_old, sig_cycle)
+    return x_new, sig_norm
+
+# Opening file
+h = btk.btkReadAcquisition(str(c3d_file))
 
 # Variables
 markers, markersInfo = btk.btkGetMarkers(h) # markers
-fpw = btk.btkGetForcePlatformWrenches(h) # force platform wrenches
 frames = btk.btkGetPointFrameNumber(h) # frames number
+freq = btk.btkGetPointFrequency(h) # sampling rate
+time = np.arange(frames) / freq # sample time
 
-# Inverse kinematics
-## Positions
+forceplates, forceplatesInfo = btk.btkGetForcePlatforms(h)
+fpw = btk.btkGetForcePlatformWrenches(h) # force platform wrenches
+fp_frames = btk.btkGetAnalogFrameNumber(h) # number of frames
+fp_freq = btk.btkGetAnalogFrequency(h) # sampling rate
+fp_time = np.arange(fp_frames) / fp_freq # sample time
+
 mrk_pairs = [
     ("EIAS_G", "EIAS_D"),
     ("HANCHE_G", "HANCHE_D"),
@@ -32,30 +53,67 @@ mrk_pairs = [
     ("PIED_G", "PIED_D")
 ]
 
+# Gait cycle identification
+for i in range(len(forceplates)) :
+    if np.count_nonzero(fpw[i]["F"][:,2]) > 0 :
+        continue
+    else:
+        print(f" force platform {i} non-used")
+
+HS_time = []
+
+plt.figure()
+for i in range(len(forceplates)-1):
+    grf_z = fpw[i]["F"][:,2]
+    index = np.where(grf_z > 20)[0][0] # index of the 1st frame at which GRFz > 0
+    HS = index/fp_freq
+    HS_time.append(HS)
+    plt.plot(fp_time, grf_z, label=f"Platform {i}")
+    if i == 0:
+        plt.axvline(HS_time[i], c="black", label="Heel strike")
+    else:
+        plt.axvline(HS_time[i], c="black")
+plt.plot(time, markers["CHEVILLE_D"][:,2], label="CHEVILLE_D")
+plt.plot(time, markers["CHEVILLE_G"][:,2], label="CHEVILLE_G")
+plt.xlabel("Time (s)")
+plt.ylabel("GRFz (N.mm)")
+plt.legend(loc="upper right")
+plt.grid(True)
+plt.savefig(str(output_dir / "gait_cycle_identification.png"))
+plt.close()
+
+# Positions
+# You have to choose the right platforms !!
+HS_time = []
+grfz0 = fpw[0]["F"][:,2]
+#grfz1 = fpw[1]["F"][:,2]
+grfz2 = fpw[2]["F"][:,2]
+#grfz3 = fpw[3]["F"][:,2]
+for plateforme in (grfz2, grfz0) : # And change names here !!
+    index = np.where(plateforme > 20)[0][0] # index of the 1st frame at which GRFz > 0
+    HS = index/fp_freq
+    HS_time.append(HS)
+
+HS_frames = (np.array(HS_time) * freq).round().astype(int)
+start_frame, end_frame = HS_frames
+cycle_index = np.arange(start_frame, end_frame + 1)
+
 for i, (gauche, droite) in enumerate(mrk_pairs):
+    x_perc, right_norm = normalize_cycle(markers[gauche][:, 2], cycle_index)
+    x_perc, left_norm  = normalize_cycle(markers[droite][:, 2],  cycle_index)
+
     plt.figure()
-
-    plt.subplot(311) #X-axis
-    plt.plot(markers[gauche][:,0], label="Left")
-    plt.plot(markers[droite][:,0], label="Right")
-    plt.ylabel("X axis (mm)")
+    plt.plot(x_perc, left_norm, label=f"{gauche}")
+    plt.plot(x_perc, right_norm, label=f"{droite}")
+    plt.xlim(0, 100)
+    plt.grid(True)
     plt.legend(loc="upper right")
-
-    plt.subplot(312) #Y-axis
-    plt.plot(markers[gauche][:,1])
-    plt.plot(markers[droite][:,1])
-    plt.ylabel("Y axis (mm)")
-
-    plt.subplot(313) #Z-axis
-    plt.plot(markers[gauche][:,2])
-    plt.plot(markers[droite][:,2])
-    plt.ylabel("Z axis (mm)")
-    plt.xlabel("Frame")
-
-    plt.subplots_adjust(hspace=0.6)
-
+    plt.xlabel("Gait cycle (%)", fontsize=10)
+    plt.ylabel("Vertical position (mm)", fontsize=10)
     plt.savefig(str(output_dir / f"position_{i}.png"))
+    plt.close()
 
+# Inverse kinematics
 ## Angles
 left_hip = []
 right_hip = []
@@ -90,24 +148,31 @@ for i in range(int(frames)):
     left_ankle.append(l_ankle_agl)
     right_ankle.append(r_ankle_agl)
 
+left_hip = np.array(left_hip)
+right_hip = np.array(right_hip)
+left_knee = np.array(left_knee)
+right_knee = np.array(right_knee)
+left_ankle = np.array(left_ankle)
+right_ankle = np.array(right_ankle)
+
+agl_pairs = [
+    (left_hip, right_hip),
+    (left_knee, right_knee),
+    (left_ankle, right_ankle)
+]
+
     # plots
-plt.figure()
-plt.plot(left_hip, label="Left")
-plt.plot(right_hip, label="Right")
-plt.ylabel("Hip angle (°)")
-plt.legend(loc="upper right")
-plt.savefig(str(output_dir / f"angle_hip.png"))
+for i, (gauche, droite) in enumerate(agl_pairs):
+    x_perc, left_norm  = normalize_cycle(gauche, cycle_index)
+    x_perc, right_norm = normalize_cycle(droite, cycle_index)
 
-plt.figure()
-plt.plot(left_knee, label="Left")
-plt.plot(right_knee, label="Right")
-plt.ylabel("Knee angle (°)")
-plt.legend(loc="upper right")
-plt.savefig(str(output_dir / f"angle_knee.png"))
-
-plt.figure()
-plt.plot(left_ankle, label="Left")
-plt.plot(right_ankle, label="Right")
-plt.ylabel("Ankle angle (°)")
-plt.legend(loc="upper right")
-plt.savefig(str(output_dir / f"angle_ankle.png"))
+    plt.figure()
+    plt.plot(x_perc, left_norm, label="Left")
+    plt.plot(x_perc, right_norm, label="Right")
+    plt.xlim(0, 100)
+    plt.xlabel("Gait cycle (%)")
+    plt.ylabel("Angle (°)")
+    plt.legend(loc="upper right")
+    plt.grid(True)
+    plt.savefig(str(output_dir / f"angle_{i}.png"))
+    plt.close()

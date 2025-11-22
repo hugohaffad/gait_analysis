@@ -7,7 +7,7 @@ import numpy as np
 
 # Directories
 data_dir = Path(DATA)
-c3d_file = data_dir / "Hugo01.c3d" # Insert filename
+c3d_file = data_dir / "Hugo05.c3d" # Insert filename
 filename = c3d_file.stem
 output_dir = Path(REP / filename)
 output_dir.mkdir(parents=True, exist_ok=True)

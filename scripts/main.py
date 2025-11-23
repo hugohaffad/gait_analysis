@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from config import DATA, REP
 
-c3d_file = DATA / "Hugo01.c3d"
+c3d_file = DATA / "Hugo_marche_chaussure_7.c3d"
 filename = c3d_file.stem
 output_dir = REP / filename
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -134,6 +134,39 @@ print(f"Cadence : {cadence:.1f} pas/min")
 ## Vitesse
 speed = ((np.mean(stride_length)/1000)*cadence)/120
 print(f"vitesse de marche : {speed:.1f} m/s")
+
+## Autres paramètres temporels
+HS = []
+TO = []
+
+plt.figure()
+plt.plot(time, markers["CHEVILLE_D"][:,2])
+plt.plot(time, markers["CHEVILLE_G"][:,2])
+for i in range(len(forceplates)-1):
+    GRFz = fpw[i]["F"][:,2]
+    HS_time = np.where(GRFz > 1)[0][0]/fp_freq
+    TO_time = np.where(GRFz > 1)[0][-1]/fp_freq
+
+    HS.append(HS_time)
+    TO.append(TO_time)
+
+    plt.plot(fp_time, GRFz)
+    plt.axvline(HS_time, color='blue')
+    plt.axvline(TO_time, color="black")
+    plt.xlim([0, time[-1]])
+plt.close()
+
+cycle_time = HS[3]-HS[1]
+stance_phase = ((TO[1]-HS[1])/cycle_time)*100
+swing_phase = 100 - stance_phase
+double_support = (((TO[2]-HS[1])+(TO[1]-HS[0]))/cycle_time)*100
+single_support = ((HS[0]-TO[2])/cycle_time)*100
+
+print(f"Durée du cycle de marche : {cycle_time:.1f} s")
+print(f"Phase d'appui : {stance_phase:.1f} %")
+print(f"Phase oscillante : {swing_phase:.1f} %")
+print(f"Phase de double appui : {double_support:.1f} %")
+print(f"Phase de simple appui : {single_support:.1f} %")
 
 # Analyse cinématique
 ## Position des marqueurs (axe Z)

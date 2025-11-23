@@ -224,3 +224,4 @@ for i, (gauche, droite) in enumerate(agl_pairs):
     plt.close()
 
 # Kinetics
+print(HS_time)

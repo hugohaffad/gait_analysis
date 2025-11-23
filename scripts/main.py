@@ -77,7 +77,7 @@ stride_length = []
 plt.figure()
 for i in range(len(forceplates)-1):
     GRFz = fpw[i]["F"][:,2]
-    index = np.where(GRFz > 20)[0][0] # index de la 1e frame où GRFz > 20
+    index = np.where(GRFz > 20)[0][0] # index de la 1e frame où GRFz > 20 N
     HS = index/fp_freq
     HS_time.append(HS)
     plt.plot(fp_time, GRFz, label=f"Plateforme {i}")
@@ -88,7 +88,7 @@ for i in range(len(forceplates)-1):
 plt.plot(time, markers["CHEVILLE_G"][:,2], label="Cheville gauche")
 plt.plot(time, markers["CHEVILLE_D"][:,2], label="Cheville droite")
 plt.xlabel("Temps (s)")
-plt.ylabel("GRFz (N.mm)")
+plt.ylabel("GRFz (N)")
 plt.legend(loc="upper right")
 plt.grid(True)
 plt.savefig(str(output_dir / "Identification_cycle_marche.png"))
@@ -119,7 +119,7 @@ print(f"Longueur moyenne d'enjambée : {np.mean(stride_length):.1f} mm")
 
 ## Cadence de marche
 HS_time = []
-for i in range(0, len(forceplates)-1):
+for i in range(len(forceplates)-1):
     GRFz = fpw[i]["F"][:,2]
     index = np.where(GRFz > 20)[0][0]
     HS = index/fp_freq
@@ -138,11 +138,11 @@ print(f"vitesse de marche : {speed:.1f} m/s")
 # Analyse cinématique
 ## Position des marqueurs (axe Z)
 HS_time = []
-grfz0 = fpw[0]["F"][:,2] # You have to choose the right platforms !!
-#grfz1 = fpw[1]["F"][:,2]
-grfz2 = fpw[2]["F"][:,2]
-#grfz3 = fpw[3]["F"][:,2]
-for plateforme in (grfz2, grfz0) : # And change names here !!
+GRFz0 = fpw[0]["F"][:,2] # You have to choose the right platforms !!
+#GRFz1 = fpw[1]["F"][:,2]
+GRFz2 = fpw[2]["F"][:,2]
+#GRFz3 = fpw[3]["F"][:,2]
+for plateforme in (GRFz2, GRFz0) : # And change names here !!
     index = np.where(plateforme > 20)[0][0] # index of the 1st frame at which GRFz > 0
     HS = index/fp_freq
     HS_time.append(HS)
@@ -224,5 +224,3 @@ for articulation, sides in angles.items():
     plt.grid(True)
     plt.savefig(str(output_dir / f"Angle_{articulation}.png"))
     plt.close()
-
-# Cinétiques articulaires

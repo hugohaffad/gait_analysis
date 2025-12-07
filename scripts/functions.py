@@ -31,8 +31,7 @@ def derivee(y, dt, ordre):
     return y
 
 def angle_between(u, v):
-    num = np.dot(u, v)
-    den = np.linalg.norm(u) * np.linalg.norm(v)
-    cos_theta = num / den
-    cos_theta = np.clip(cos_theta, -1, 1)
+    num = np.sum(u * v, axis=1)
+    den = np.linalg.norm(u, axis=1) * np.linalg.norm(v, axis=1)
+    cos_theta = np.clip(num / den, -1, 1)
     return np.rad2deg(np.arccos(cos_theta))

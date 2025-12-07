@@ -5,6 +5,8 @@ import moveck_bridge_btk as btk
 import numpy as np
 import matplotlib.pyplot as plt
 
+from scripts.functions import derivee
+
 #file import
 c3d_file = DATA / "Hugo01.c3d"
 h = btk.btkReadAcquisition(str(c3d_file))
@@ -52,6 +54,28 @@ events = {
         "HS": {"frame": [], "time": []},
         "TO": {"frame": [], "time": []},
     }
+}
+
+left_foot = markers["PIED_G"][:,1:] - markers["CHEVILLE_G"][:,1:]
+right_foot = markers["PIED_D"][:,1:] - markers["CHEVILLE_D"][:,1:]
+left_leg = markers["GENOU_G"][:,1:] - markers["CHEVILLE_G"][:,1:]
+right_leg = markers["GENOU_D"][:,1:] - markers["CHEVILLE_D"][:,1:]
+left_thigh = markers["GENOU_G"][:,1:] - markers["HANCHE_G"][:,1:]
+right_thigh = markers["GENOU_D"][:,1:] - markers["HANCHE_D"][:,1:]
+left_pelvis = markers["EIAS_G"][:,1:] - markers["HANCHE_G"][:,1:]
+right_pelvis = markers["EIAS_D"][:,1:] - markers["HANCHE_D"][:,1:]
+
+left_ankle = 90 - angle_between(left_foot, left_leg)
+right_ankle = 90 - angle_between(right_foot, right_leg)
+left_knee = 180 - angle_between(left_leg, left_thigh)
+right_knee = 180 - angle_between(right_leg, right_thigh)
+left_hip = 180 - angle_between(left_thigh, left_pelvis)
+right_hip = 180 - angle_between(right_thigh, right_pelvis)
+
+angles = {
+    "Hip":   {"left": left_hip,   "right": right_hip},
+    "Knee":  {"left": left_knee,      "right": right_knee},
+    "Ankle": {"left": left_ankle,     "right": right_ankle}
 }
 
 #gait cycle determination
@@ -186,4 +210,90 @@ axes[4].set_xlabel("Gait cycle (%)")
 
 plt.tight_layout()
 plt.savefig(str(output_dir / "linear_acceleration.png"), dpi=300)
+plt.close()
+
+#joints angles
+labels = list(angles.keys())
+
+fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+axes = axes.flatten()
+
+for i, label in enumerate(labels):
+    ax = axes[i]
+
+    right = angles[label]["right"]
+    left = angles[label]["left"]
+
+    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
+    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
+
+    ax.plot(gc, right_norm, label="Right")
+    ax.plot(gc, left_norm,  label="Left")
+
+    ax.set_title(label, fontsize=10, fontweight="bold")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+axes[0].legend(loc="upper right")
+axes[0].set_ylabel("Angle (°)")
+axes[0].set_xlabel("Gait cycle (%)")
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "joint_angle.png"), dpi=300)
+plt.close()
+
+#angular velocity
+fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+axes = axes.flatten()
+
+for i, label in enumerate(labels):
+    ax = axes[i]
+
+    right = derivee(angles[label]["right"], dt, 1)
+    left = derivee(angles[label]["left"], dt, 1)
+
+    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
+    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
+
+    ax.plot(gc, right_norm, label="Right")
+    ax.plot(gc, left_norm,  label="Left")
+
+    ax.set_title(label, fontsize=10, fontweight="bold")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+axes[0].legend(loc="upper right")
+axes[0].set_ylabel("Angular velocity (°/s)")
+axes[0].set_xlabel("Gait cycle (%)")
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "angular_velocity.png"), dpi=300)
+plt.close()
+
+#angular acceleration
+fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+axes = axes.flatten()
+
+for i, label in enumerate(labels):
+    ax = axes[i]
+
+    right = derivee(angles[label]["right"], dt, 2)
+    left = derivee(angles[label]["left"], dt, 2)
+
+    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
+    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
+
+    ax.plot(gc, right_norm, label="Right")
+    ax.plot(gc, left_norm,  label="Left")
+
+    ax.set_title(label, fontsize=10, fontweight="bold")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+axes[0].legend(loc="upper right")
+axes[0].set_ylabel("Angular acceleration (°/s$^2$)")
+axes[0].set_xlabel("Gait cycle (%)")
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "angular_acceleration.png"), dpi=300)
 plt.close()

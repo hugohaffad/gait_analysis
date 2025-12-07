@@ -26,10 +26,14 @@ markers, markersInfo = btk.btkGetMarkers(h)
 frame = btk.btkGetPointFrameNumber(h)
 freq = btk.btkGetPointFrequency(h)
 time = np.arange(frame)/freq
+dt = 1 / freq
 
-marker = {
-    "left": {"ASIS": "EIAS_G", "hip": "HANCHE_G", "knee": "GENOU_G", "ankle": "CHEVILLE_G", "foot": "PIED_G"},
-    "right": {"ASIS": "EIAS_D", "hip": "HANCHE_D", "knee": "GENOU_D", "ankle": "CHEVILLE_D", "foot": "PIED_D"}
+mrk = {
+    "ASIS": {"left": "EIAS_G", "right": "EIAS_D"},
+    "Hip":  {"left": "HANCHE_G", "right": "HANCHE_D"},
+    "Knee": {"left": "GENOU_G", "right": "GENOU_D"},
+    "Ankle":{"left": "CHEVILLE_G", "right": "CHEVILLE_D"},
+    "Foot": {"left": "PIED_G", "right": "PIED_D"}
 }
 
 forceplates, forceplatesInfo = btk.btkGetForcePlatforms(h)
@@ -78,22 +82,108 @@ for i in active_forceplates:
     events[side]["TO"]["frame"].append(TO_frame)
     events[side]["TO"]["time"].append(TO_time)
 
-print(events)
+events = sort_events(events)
 
-#
-# if events["right"]["HS"]["frame"][0] < events["left"]["HS"]["frame"][0]:
-#     side = "right"
-# else:
-#     side = "left"
-# start_frame, end_frame = events[side]["HS"]["frame"]
-# gc_percent, l_ankle_norm = normalize_cycle(markers[marker["left"]["ankle"]][:, 2], start_frame, end_frame)
-# _,          r_ankle_norm = normalize_cycle(markers[marker["right"]["ankle"]][:, 2], start_frame, end_frame)
-#
-# plt.figure()
-# plt.plot(gc_percent, l_ankle_norm, label="Left")
-# plt.plot(gc_percent, r_ankle_norm, label="Right")
-# plt.xlim(0, 100)
-# plt.legend(loc="best")
-# plt.show()
+if events["right"]["HS"]["frame"][0] < events["left"]["HS"]["frame"][0]:
+    side = "right"
+else:
+    side = "left"
+start_frame, end_frame = events[side]["HS"]["frame"][0], events[side]["HS"]["frame"][1]
 
-#analyse cinématique = trajectoires, vitesses et accélérations
+#position
+labels = list(mrk.keys())
+
+fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+axes = axes.flatten()
+
+for i, label in enumerate(labels):
+    ax = axes[i]
+
+    left  = markers[mrk[label]["left"]][:, 2]
+    right = markers[mrk[label]["right"]][:, 2]
+
+    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
+    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
+
+    ax.plot(gc, right_norm, label="Right")
+    ax.plot(gc, left_norm,  label="Left")
+
+    ax.set_title(label, fontsize=10, fontweight="bold")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+axes[-1].axis("off")
+
+axes[0].legend(loc="upper right")
+axes[0].set_ylabel("Position (mm)")
+axes[3].set_ylabel("Position (mm)")
+axes[3].set_xlabel("Gait cycle (%)")
+axes[4].set_xlabel("Gait cycle (%)")
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "position.png"), dpi=300)
+plt.close()
+
+#linear velocity
+fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+axes = axes.flatten()
+
+for i, label in enumerate(labels):
+    ax = axes[i]
+
+    left  = derivee(markers[mrk[label]["left"]][:, 2], dt,1)
+    right = derivee(markers[mrk[label]["right"]][:, 2], dt, 1)
+
+    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
+    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
+
+    ax.plot(gc, right_norm, label="Right")
+    ax.plot(gc, left_norm,  label="Left")
+
+    ax.set_title(label, fontsize=10, fontweight="bold")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+axes[-1].axis("off")
+
+axes[0].legend(loc="upper right")
+axes[0].set_ylabel("Velocity (mm/s)")
+axes[3].set_ylabel("Velocity (mm/s)")
+axes[3].set_xlabel("Gait cycle (%)")
+axes[4].set_xlabel("Gait cycle (%)")
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "linear_velocity.png"), dpi=300)
+plt.close()
+
+#linear acceleration
+fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+axes = axes.flatten()
+
+for i, label in enumerate(labels):
+    ax = axes[i]
+
+    left  = derivee(markers[mrk[label]["left"]][:, 2], dt,2)
+    right = derivee(markers[mrk[label]["right"]][:, 2], dt, 2)
+
+    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
+    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
+
+    ax.plot(gc, right_norm, label="Right")
+    ax.plot(gc, left_norm,  label="Left")
+
+    ax.set_title(label, fontsize=10, fontweight="bold")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+axes[-1].axis("off")
+
+axes[0].legend(loc="upper right")
+axes[0].set_ylabel("Acceleration (mm/s$^2$)")
+axes[3].set_ylabel("Acceleration (mm/s$^2$)")
+axes[3].set_xlabel("Gait cycle (%)")
+axes[4].set_xlabel("Gait cycle (%)")
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "linear_acceleration.png"), dpi=300)
+plt.close()

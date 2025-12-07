@@ -113,6 +113,7 @@ for i in active_forceplates:
     events[side]["TO"]["time"].append(TO_time)
 
 # Détermination d'un cycle de marche
+plt.figure()
 for side in ["gauche", "droite"]:
     start_frame, end_frame = np.sort(events[side]["HS"]["frame"])
     cycle_frame = end_frame + 1 - start_frame
@@ -121,3 +122,5 @@ for side in ["gauche", "droite"]:
     ST_parameters[side]["cycle_time"].append(cycle_frame/freq)
 
     print(f"Durée du cycle de marche {side} : {cycle_frame/freq:.2f} s")
+
+    print(start_frame, end_frame)

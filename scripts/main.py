@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #file import
-c3d_file = DATA / "Hugo01.c3d"
+c3d_file = DATA / "Hugo02.c3d"
 h = btk.btkReadAcquisition(str(c3d_file))
 filename = c3d_file.stem
 output_dir = REP / filename
@@ -159,6 +159,21 @@ if events["right"]["HS"]["frame"][0] < events["left"]["HS"]["frame"][0]:
 else:
     side = "left"
 start_frame, end_frame = events[side]["HS"]["frame"][0], events[side]["HS"]["frame"][1]
+
+#set ankle reference angles
+window_R = right_leg[events["right"]["HS"]["frame"][0]:events["right"]["TO"]["frame"][0], 0]
+idx_local_R = int(np.argmin(np.abs(window_R)))
+idx_global_R = events["right"]["HS"]["frame"][0] + idx_local_R
+ankle_R = np.asarray(angles["Ankle"]["right"])
+angle_ref_R = ankle_R[idx_global_R]
+angles["Ankle"]["right"] = ankle_R - angle_ref_R
+
+window_L = left_leg[events["left"]["HS"]["frame"][0]:events["left"]["TO"]["frame"][0], 0]
+idx_local_L = int(np.argmin(np.abs(window_L)))
+idx_global_L = events["left"]["HS"]["frame"][0] + idx_local_L
+ankle_L = np.asarray(angles["Ankle"]["left"])
+angle_ref_L = ankle_L[idx_global_L]
+angles["Ankle"]["left"] = ankle_L - angle_ref_L
 
 #joints angles
 labels = list(angles.keys())

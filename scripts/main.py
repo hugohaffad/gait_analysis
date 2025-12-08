@@ -160,104 +160,6 @@ else:
     side = "left"
 start_frame, end_frame = events[side]["HS"]["frame"][0], events[side]["HS"]["frame"][1]
 
-#position
-labels = list(mrk.keys())
-
-fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-axes = axes.flatten()
-
-for i, label in enumerate(labels):
-    ax = axes[i]
-
-    left  = markers[mrk[label]["left"]][:, 2]
-    right = markers[mrk[label]["right"]][:, 2]
-
-    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
-    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
-
-    ax.plot(gc, right_norm, label="Right", linewidth=2)
-    ax.plot(gc, left_norm,  label="Left", linewidth=2)
-
-    ax.set_title(label, fontsize=10, fontweight="bold")
-    ax.set_xlim(0, 100)
-    ax.grid(True)
-
-axes[-1].axis("off")
-
-axes[0].legend(loc="upper right")
-axes[0].set_ylabel("Position (mm)")
-axes[3].set_ylabel("Position (mm)")
-axes[3].set_xlabel("Gait cycle (%)")
-axes[4].set_xlabel("Gait cycle (%)")
-
-plt.tight_layout()
-plt.savefig(str(output_dir / "position.png"), dpi=300)
-plt.close()
-
-#linear velocity
-fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-axes = axes.flatten()
-
-for i, label in enumerate(labels):
-    ax = axes[i]
-
-    left  = derivee(markers[mrk[label]["left"]][:, 2], dt,1)
-    right = derivee(markers[mrk[label]["right"]][:, 2], dt, 1)
-
-    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
-    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
-
-    ax.plot(gc, right_norm, label="Right", linewidth=2)
-    ax.plot(gc, left_norm,  label="Left", linewidth=2)
-
-    ax.set_title(label, fontsize=10, fontweight="bold")
-    ax.set_xlim(0, 100)
-    ax.grid(True)
-
-axes[-1].axis("off")
-
-axes[0].legend(loc="upper right")
-axes[0].set_ylabel("Velocity (mm/s)")
-axes[3].set_ylabel("Velocity (mm/s)")
-axes[3].set_xlabel("Gait cycle (%)")
-axes[4].set_xlabel("Gait cycle (%)")
-
-plt.tight_layout()
-plt.savefig(str(output_dir / "linear_velocity.png"), dpi=300)
-plt.close()
-
-#linear acceleration
-fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-axes = axes.flatten()
-
-for i, label in enumerate(labels):
-    ax = axes[i]
-
-    left  = derivee(markers[mrk[label]["left"]][:, 2], dt,2)
-    right = derivee(markers[mrk[label]["right"]][:, 2], dt, 2)
-
-    gc, right_norm = normalize_cycle(right, start_frame, end_frame)
-    _,  left_norm  = normalize_cycle(left,  start_frame, end_frame)
-
-    ax.plot(gc, right_norm, label="Right", linewidth=2)
-    ax.plot(gc, left_norm,  label="Left", linewidth=2)
-
-    ax.set_title(label, fontsize=10, fontweight="bold")
-    ax.set_xlim(0, 100)
-    ax.grid(True)
-
-axes[-1].axis("off")
-
-axes[0].legend(loc="upper right")
-axes[0].set_ylabel("Acceleration (mm/s$^2$)")
-axes[3].set_ylabel("Acceleration (mm/s$^2$)")
-axes[3].set_xlabel("Gait cycle (%)")
-axes[4].set_xlabel("Gait cycle (%)")
-
-plt.tight_layout()
-plt.savefig(str(output_dir / "linear_acceleration.png"), dpi=300)
-plt.close()
-
 #joints angles
 labels = list(angles.keys())
 
@@ -281,8 +183,9 @@ for i, label in enumerate(labels):
     ax.grid(True)
 
 axes[0].legend(loc="upper right")
-axes[0].set_ylabel("Angle (°)")
-axes[0].set_xlabel("Gait cycle (%)")
+
+fig.supylabel("Angle (°)", fontsize=10, x=0.01)
+fig.supxlabel("Gait cycle (%)",fontsize=10, y = 0.03)
 
 plt.tight_layout()
 plt.savefig(str(output_dir / "joint_angle.png"), dpi=300)

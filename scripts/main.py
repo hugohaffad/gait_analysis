@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 #file import
-c3d_file = DATA / "Hugo02.c3d"
+c3d_file = DATA / "Hugo01.c3d"
 h = btk.btkReadAcquisition(str(c3d_file))
 filename = c3d_file.stem
 output_dir = REP / filename

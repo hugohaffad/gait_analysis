@@ -5,14 +5,13 @@ import moveck_bridge_btk as btk
 import matplotlib.pyplot as plt
 
 # ---- File import ---- #
-c3d_file = DATA / "Hugo01.c3d"
-h = btk.btkReadAcquisition(str(c3d_file))
-filename = c3d_file.stem
+file = DATA / "Hugo_marche_chaussure_9.c3d"
+h = btk.btkReadAcquisition(str(file))
+filename = file.stem
 output_dir = REP / filename
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # ---- Variables ---- #
-
 """
 recording sampling frequency = 100 Hz
 markers : CHEVILLE_D, CHEVILLE_G, EIAS_D, EIAS_G, GENOU_D, GENOU_G, HANCHE_D, HANCHE_G, PIED_D, PIED_G
@@ -25,13 +24,6 @@ moment = Nmm
 ## Markers
 markers, markersInfo = btk.btkGetMarkers(h)
 freq = btk.btkGetPointFrequency(h)
-mrk = {
-    "ASIS": {"left": "EIAS_G", "right": "EIAS_D"},
-    "Hip":  {"left": "HANCHE_G", "right": "HANCHE_D"},
-    "Knee": {"left": "GENOU_G", "right": "GENOU_D"},
-    "Ankle":{"left": "CHEVILLE_G", "right": "CHEVILLE_D"},
-    "Foot": {"left": "PIED_G", "right": "PIED_D"}
-}
 
 ## Segments
 left_pelvis = markers["EIAS_G"] - markers["HANCHE_G"]
@@ -44,12 +36,18 @@ left_foot = markers["PIED_G"] - markers["CHEVILLE_G"]
 right_foot = markers["PIED_D"] - markers["CHEVILLE_D"]
 
 ## Angles
-left_hip = 180 - (angle(left_thigh) - angle(left_pelvis))
-right_hip = 180 - (angle(right_thigh) - angle(right_pelvis))
-left_knee = 180 - (angle(left_thigh) - angle(left_leg))
-right_knee = 180 - (angle(right_thigh) - angle(right_leg))
+left_hip = (180 - (angle(left_thigh) - angle(left_pelvis))) % 360
+left_hip = np.where(left_hip > 180, left_hip - 360, left_hip)
+right_hip = (180 - (angle(right_thigh) - angle(right_pelvis))) % 360
+right_hip = np.where(right_hip > 180, right_hip - 360, right_hip)
+left_knee = (180 - (angle(left_thigh) - angle(left_leg))) % 360
+left_knee = np.where(left_knee > 180, left_knee - 360, left_knee)
+right_knee = (180 - (angle(right_thigh) - angle(right_leg))) % 360
+right_knee = np.where(right_knee > 180, right_knee - 360, right_knee)
 left_ankle = 90 - (angle(left_foot) - angle(left_leg))
+left_ankle = np.where(left_ankle > 180, left_ankle - 360, left_ankle)
 right_ankle = 90 - (angle(right_foot) - angle(right_leg))
+right_ankle = np.where(right_ankle > 180, right_ankle - 360, right_ankle)
 
 angles = {
     "Hip":   {"left": left_hip, "right": right_hip},
@@ -111,13 +109,7 @@ else:
     side = "left"
 start_frame, end_frame = events[side]["HS"]["frame"][0], events[side]["HS"]["frame"][1]
 
-# ---- Joints angles ---- #
-"""
-ok pour wrap-around
-tjr un pb de offset
-"""
-
-## Reports
+# ---- Report joints angles ---- #
 labels = list(angles.keys())
 
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))

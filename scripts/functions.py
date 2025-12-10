@@ -30,5 +30,5 @@ def derivee(y, dt, ordre):
     return y
 
 def angle(v):
-    theta = np.degrees(np.unwrap(np.arctan2(v[:, 1], v[:, 2])))
+    theta = np.degrees(np.unwrap(np.arctan2(v[:, 1], v[:, 2]), period=2*np.pi))
     return theta

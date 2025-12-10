@@ -4,15 +4,25 @@ from functions import *
 import moveck_bridge_btk as btk
 import matplotlib.pyplot as plt
 
-#---- File import ----#
+# ---- File import ---- #
 c3d_file = DATA / "Hugo01.c3d"
 h = btk.btkReadAcquisition(str(c3d_file))
 filename = c3d_file.stem
 output_dir = REP / filename
 output_dir.mkdir(parents=True, exist_ok=True)
 
-#---- Variables ----#
-##Markers
+# ---- Variables ---- #
+
+"""
+recording sampling frequency = 100 Hz
+markers : CHEVILLE_D, CHEVILLE_G, EIAS_D, EIAS_G, GENOU_D, GENOU_G, HANCHE_D, HANCHE_G, PIED_D, PIED_G
+position = mm
+analog sampling frequency = 1000 Hz
+force = N
+moment = Nmm
+"""
+
+## Markers
 markers, markersInfo = btk.btkGetMarkers(h)
 freq = btk.btkGetPointFrequency(h)
 mrk = {
@@ -23,7 +33,7 @@ mrk = {
     "Foot": {"left": "PIED_G", "right": "PIED_D"}
 }
 
-##Segments
+## Segments
 left_pelvis = markers["EIAS_G"] - markers["HANCHE_G"]
 right_pelvis = markers["EIAS_D"] - markers["HANCHE_D"]
 left_thigh = markers["GENOU_G"] - markers["HANCHE_G"]
@@ -33,7 +43,7 @@ right_leg = markers["GENOU_D"] - markers["CHEVILLE_D"]
 left_foot = markers["PIED_G"] - markers["CHEVILLE_G"]
 right_foot = markers["PIED_D"] - markers["CHEVILLE_D"]
 
-##Angles
+## Angles
 left_hip = 180 - (angle(left_thigh) - angle(left_pelvis))
 right_hip = 180 - (angle(right_thigh) - angle(right_pelvis))
 left_knee = 180 - (angle(left_thigh) - angle(left_leg))
@@ -47,13 +57,13 @@ angles = {
     "Ankle": {"left": left_ankle, "right": right_ankle}
 }
 
-##Forceplates
+## Forceplates
 forceplates, forceplatesInfo = btk.btkGetForcePlatforms(h)
 grw = btk.btkGetGroundReactionWrenches(h)
 fp_freq = btk.btkGetAnalogFrequency(h)
 active_forceplates = []
 
-##Events
+## Events
 events = {
     "left": {
         "HS": {"frame": [], "time": []},
@@ -65,7 +75,7 @@ events = {
     }
 }
 
-#---- Gait cycle determination ----#
+# ---- Gait cycle determination ---- #
 for i in range(len(forceplates)):
     if np.count_nonzero(grw[i]["F"]) == 0:
         continue
@@ -101,13 +111,13 @@ else:
     side = "left"
 start_frame, end_frame = events[side]["HS"]["frame"][0], events[side]["HS"]["frame"][1]
 
-#---- Joints angles ----#
+# ---- Joints angles ---- #
 """
 ok pour wrap-around
 tjr un pb de offset
 """
 
-##Reports
+## Reports
 labels = list(angles.keys())
 
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))

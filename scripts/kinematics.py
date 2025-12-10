@@ -33,32 +33,11 @@ def normalize_cycle(signal, start_frame, end_frame, n_points=101):
 
     return x_new, cycle_norm
 
-def derivee(y, dt, ordre):
-    for _ in range(ordre):
-        y = np.gradient(y, dt)
-    return y
-
 def angle(v):
     theta = np.degrees(np.unwrap(np.arctan2(v[:, 1], v[:, 2]), period=2*np.pi))
     return theta
 
-def kinematics_analysis(file, joints = ("Hip", "Knee", "Ankle")):
-    """
-    Calcule les angles de hanche, genou, cheville droite/gauche sur un cycle HS–HS
-    pour chaque jambe, à partir d'un fichier .c3d.
-
-    Paramètres
-    ----------
-    file : str or Path
-        Chemin vers le fichier .c3d.
-
-    Retour
-    ------
-    gc : np.ndarray
-        Vecteur 0–100 (%) du cycle de marche.
-    angles_norm : dict
-        angles_norm[joint][side] = signal normalisé (np.ndarray de taille n_points).
-    """
+def kinematics_analysis(file, joints):
 
     h = btk.btkReadAcquisition(str(file))
 

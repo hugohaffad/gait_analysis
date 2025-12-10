@@ -1,3 +1,12 @@
+from config import *
+
+import numpy as np
+
+def derivee(y, dt, ordre):
+    for _ in range(ordre):
+        y = np.gradient(y, dt)
+    return y
+
 # --- Table anthropométrique ---
 len_frac = {
     "Foot": 0.152,

@@ -152,7 +152,7 @@ def kinematics_analysis(file, joints):
 
     results = {
         "gc": gc,
-        "right": angles_norm["right"],  # dict joint -> courbe normalisée
+        "right": angles_norm["right"],
         "left":  angles_norm["left"],
     }
 
@@ -164,7 +164,7 @@ def compute_group_curves(dir_path, joints):
 
     for file in dir_path.iterdir():
         if file.suffix.lower() != ".c3d":
-            continue  # au cas où il y ait autre chose dans le dossier
+            continue
 
         res = kinematics_analysis(file, joints=joints)
 
@@ -203,19 +203,191 @@ def plot_group_curves(gc, all_curves, joints, title, filename):
         ax.set_xlim(0, 100)
         ax.grid(True)
 
+    axes[0].set_ylim(-10, 40)
     axes[0].legend(loc="upper right")
+    axes[1].set_ylim(0, 80)
+    axes[2].set_ylim(0, -50)
     plt.tight_layout()
     plt.savefig(str(output_dir / filename), dpi=300)
     plt.close()
 
-# ---- Healthy ---- #
+#---- Reports ----#
+def compute_asym_from_means(curves, joints):
+    """
+    Calcule, pour chaque articulation, l'asymétrie droite-gauche
+    à partir des COURBES MOYENNES dans un groupe donné.
+
+    Asym(t) = Right_mean(t) - Left_mean(t)
+    """
+    asym = {}
+
+    for joint in joints:
+        left_mean  = np.vstack(curves[joint]["left"]).mean(axis=0)
+        right_mean = np.vstack(curves[joint]["right"]).mean(axis=0)
+
+        asym[joint] = right_mean - left_mean   # R - L
+
+    return asym
+
 gc_hea, curves_hea = compute_group_curves(HEA, joints)
+gc_imp, curves_imp = compute_group_curves(IMP, joints)
+asym_hea = compute_asym_from_means(curves_hea, joints)
+asym_imp = compute_asym_from_means(curves_imp, joints)
+
 plot_group_curves(gc_hea, curves_hea, joints,
                   title="Healthy gait",
                   filename="joint_angles_healthy.png")
 
-# ---- Impaired ---- #
-gc_imp, curves_imp = compute_group_curves(IMP, joints)
 plot_group_curves(gc_imp, curves_imp, joints,
                   title="Impaired gait",
                   filename="joint_angles_impaired.png")
+
+def compute_delta_asym_from_means(curves_hea, curves_imp, joints):
+    """
+    Calcule, pour chaque articulation, la différence d'asymétrie G-D
+    entre condition altérée (IMP) et condition saine (HEA),
+    à partir des COURBES MOYENNES.
+
+    Delta_asym(t) = [ (Left - Right)_IMP ] - [ (Left - Right)_HEA ]
+    """
+
+    delta_asym = {}
+
+    for joint in joints:
+        # Healthy : moyenne des courbes G et D
+        left_hea  = np.vstack(curves_hea[joint]["left"]).mean(axis=0)
+        right_hea = np.vstack(curves_hea[joint]["right"]).mean(axis=0)
+        diff_hea  =  right_hea - left_hea
+
+        # Impaired : moyenne des courbes G et D
+        left_imp  = np.vstack(curves_imp[joint]["left"]).mean(axis=0)
+        right_imp = np.vstack(curves_imp[joint]["right"]).mean(axis=0)
+        diff_imp  =  right_imp - left_imp   # B(t)
+
+        # Delta = B - A, point par point sur le cycle
+        delta_asym[joint] = diff_imp - diff_hea
+
+    return delta_asym
+
+# delta_asym à partir des MOYENNES (comme ton analyse visuelle)
+delta_asym = compute_delta_asym_from_means(curves_hea, curves_imp, joints)
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+axes = axes.flatten()
+
+for i, joint in enumerate(joints):
+    ax = axes[i]
+    da = delta_asym[joint]            # Δ_asym(t)
+
+    mean_delta = da.mean()            # moyenne sur 0–100%
+
+    # Courbe Δ_asym
+    ax.plot(gc_hea, da, linewidth=2)
+
+    # Ligne horizontale = moyenne
+    ax.axhline(mean_delta, color="k", linestyle="-", linewidth=1.5)
+
+    ax.axhline(0, linestyle="--", linewidth=1, color="gray")  # ligne zéro
+
+    ax.set_title(f"{joint}", fontsize=10, fontweight="bold")
+    ax.set_xlabel("Gait cycle (%)")
+    ax.set_ylabel("Δ asym (°)")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "delta_asymmetry.png"), dpi=300)
+plt.close()
+
+def compute_integral_asym(delta_asym):
+    """
+    delta_asym = dict(joint -> array of Δ_asym(t))
+    Retourne un dict avec l'intégrale d'asymétrie pour chaque articulation.
+    """
+    integral = {}
+
+    for joint, curve in delta_asym.items():
+        integral[joint] = np.sum(np.abs(curve))  # aire sous la courbe |Δ_asym|
+
+    return integral
+
+integral_asym = compute_integral_asym(delta_asym)
+
+print("Intégrale d’asymétrie (aire sous |Δ_asym|) :")
+for joint in joints:
+    print(f"{joint}: {integral_asym[joint]:.2f}")
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+axes = axes.flatten()
+
+for i, joint in enumerate(joints):
+    ax = axes[i]
+    curve = asym_hea[joint]
+
+    mean_asym = curve.mean()
+
+    ax.plot(gc_hea, curve, linewidth=2)
+    ax.axhline(0, color="gray", linestyle="--", linewidth=1)
+    ax.axhline(mean_asym, color="red", linestyle="-", linewidth=1.5)
+
+    ax.set_title(f"{joint}", fontsize=10, fontweight="bold")
+    ax.set_xlabel("Gait cycle (%)")
+    ax.set_ylabel("Asymmetry (°)")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+axes[0].set_ylim(-30, 30)
+axes[1].set_ylim(-30, 30)
+axes[2].set_ylim(-30, 30)
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "asymmetry_healthy.png"), dpi=300)
+plt.close()
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+axes = axes.flatten()
+
+for i, joint in enumerate(joints):
+    ax = axes[i]
+    curve = asym_imp[joint]
+
+    mean_asym = curve.mean()
+
+    ax.plot(gc_imp, curve, linewidth=2)
+    ax.axhline(0, color="gray", linestyle="--", linewidth=1)
+    ax.axhline(mean_asym, color="red", linestyle="-", linewidth=1.5)
+
+    ax.set_title(f"{joint}", fontsize=10, fontweight="bold")
+    ax.set_xlabel("Gait cycle (%)")
+    ax.set_ylabel("Asymmetry (°)")
+    ax.set_xlim(0, 100)
+    ax.grid(True)
+
+axes[0].set_ylim(-30, 30)
+axes[1].set_ylim(-30, 30)
+axes[2].set_ylim(-30, 30)
+
+plt.tight_layout()
+plt.savefig(str(output_dir / "asymmetry_impaired.png"), dpi=300)
+plt.close()
+
+def compute_integral_asym(asym):
+    """
+    asym[joint] = courbe R-L(t)
+    Retourne l'aire sous |R-L| pour chaque articulation.
+    """
+    integral = {}
+    for joint, curve in asym.items():
+        integral[joint] = np.sum(np.abs(curve))
+    return integral
+
+integral_hea = compute_integral_asym(asym_hea)
+integral_imp = compute_integral_asym(asym_imp)
+
+print("Intégrale d’asymétrie (Healthy) :")
+for joint in joints:
+    print(f"{joint}: {integral_hea[joint]:.2f}")
+
+print("Intégrale d’asymétrie (Impaired) :")
+for joint in joints:
+    print(f"{joint}: {integral_imp[joint]:.2f}")

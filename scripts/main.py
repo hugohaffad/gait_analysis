@@ -565,7 +565,9 @@ for joint in joints:
           f"IQR = [{d['IQR'][0]:.2f} ; {d['IQR'][1]:.2f}], "
           f"W = {d['W']:.1f}, p = {d['p_value']:.5f}")
 
-
+# =====================================================================
+# Inverse dynamics
+# =====================================================================
 
 def inverse_dynamics(file, joints):
     """
@@ -981,3 +983,4 @@ if __name__ == "__main__":
     plot_group_moments(gc_imp, moments_imp, joints,
                        filename="joint_moments_impaired.png"
                        )
+

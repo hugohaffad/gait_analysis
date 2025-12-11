@@ -5,9 +5,6 @@ import matplotlib.pyplot as plt
 import moveck_bridge_btk as btk
 from scipy.stats import wilcoxon, shapiro
 
-# ---------------------------------------------------------------------
-# PARAMÈTRES GÉNÉRAUX
-# ---------------------------------------------------------------------
 output_dir = REP
 output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -57,7 +54,7 @@ for seg in ["Foot", "Leg", "Thigh"]:
 
 def compute_derivative(y, dt, ordre):
     """
-    Calcule la dérivée numérique d'ordre 'ordre' par np.gradient
+    Calcule la dérivée numérique d'ordre 'ordre'
     en supposant un pas de temps constant dt.
     """
     for _ in range(ordre):
@@ -67,7 +64,6 @@ def compute_derivative(y, dt, ordre):
 def sort_events(events):
     """
     Trie chronologiquement les évènements HS et TO pour chaque côté.
-    events[side][evt]["frame" / "time"] sont triés par frame croissante.
     """
     for side in events:
         for evt in ["HS", "TO"]:
@@ -82,7 +78,7 @@ def sort_events(events):
 def normalize_cycle(signal, start_frame, end_frame, n_points=101):
     """
     Extrait un cycle entre start_frame et end_frame (inclus)
-    et le renormalise sur 0–100 % avec n_points échantillons.
+    et le normalise sur 0–100 % avec n_points échantillons.
     """
     cycle = signal[start_frame:end_frame+1]
     n = len(cycle)
@@ -96,7 +92,7 @@ def normalize_cycle(signal, start_frame, end_frame, n_points=101):
 
 def angle(v):
     """
-    Calcule l'angle du vecteur v dans le plan (Y,Z) en degrés,
+    Calcule l'angle du vecteur v dans le plan (Y, Z) en degrés,
     avec déroulement de phase (unwrap).
     v : array (n_frames, 3).
     """
@@ -126,8 +122,8 @@ def compute_integral(curves_by_joint):
 
 def kinematics_analysis(file, joints):
     """
-    Lit un fichier .c3d, calcule les angles Hip/Knee/Ankle (Right & Left),
-    détecte un cycle de marche par côté (HS–HS), normalise les courbes
+    Lit un fichier c3d, calcule les angles Hip/Knee/Ankle (Right & Left),
+    détecte un cycle de marche par côté (HS – HS), normalise les courbes
     sur 0–100 % du cycle et renvoie les angles normalisés.
     """
 
@@ -327,11 +323,16 @@ def plot_asymmetry(gc, asym, joints, filename):
     for i, joint in enumerate(joints):
         ax = axes[i]
         curve = asym[joint]
-        mean_asym = curve.mean()
+        mean_curve = curve.mean()
+        std_curve = curve.std(axis=0)
+        ax.fill_between(gc,
+                        mean_curve - std_curve,
+                        mean_curve + std_curve,
+                        alpha=0.2)
 
         ax.plot(gc, curve, linewidth=2)
         ax.axhline(0, color="gray", linestyle="--", linewidth=1)
-        ax.axhline(mean_asym, color="red", linestyle="-", linewidth=1.5)
+        ax.axhline(mean_curve, color="k", linestyle="-", linewidth=1.5)
 
         ax.set_title(joint, fontsize=10, fontweight="bold")
         ax.set_xlabel("Gait cycle (%)")
@@ -487,7 +488,7 @@ print("\nIntégrale d’asymétrie (Impaired) :")
 for joint in joints:
     print(f"{joint}: {integral_imp[joint]:.2f}\n")
 
-# 5.6 Différence d’angle Impaired – Healthy pour chaque jambe (Q8–Q9)
+# 5.6 Différence d’angle Impaired – Healthy pour chaque jambe
 diff_angles = compute_imp_minus_hea(curves_hea, curves_imp, joints)
 
 # 5.6.1 Normalité des Δ angles (Shapiro–Wilk)
@@ -592,7 +593,7 @@ def inverse_dynamics(file, joints):
     time  = np.arange(frame) / freq
     dt    = 1.0 / freq
 
-    # Marqueurs en m
+    # Marqueurs en metres
     markers_m = {name: arr / 1000.0 for name, arr in markers.items()}
 
     # Force plates
@@ -909,7 +910,7 @@ def inverse_dynamics(file, joints):
 # ----------------------------------------------------------------------
 def compute_group_moments(dir_path, joints):
     """
-    Parcourt tous les fichiers .c3d d'un dossier (HEA ou IMP),
+    Parcourt tous les fichiers c3d d'un dossier (HEA ou IMP),
     applique inverse_dynamics et stocke toutes les courbes
     normalisées dans all_moments[joint][side].
     """
@@ -934,7 +935,7 @@ def compute_group_moments(dir_path, joints):
 def plot_group_moments(gc, all_moments, joints, filename):
     """
     Trace, pour chaque articulation, la moyenne ± 1 SD
-    des moments articulaires (Nm/kg) des membres droit et gauche.
+    des moments articulaires (Nm/kg) des membres droits et gauches.
     """
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     axes = axes.flatten()

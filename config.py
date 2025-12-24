@@ -1,9 +1,9 @@
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent
+BASEDIR = Path(__file__).resolve().parent
 
-DATA = BASE_DIR / "data"
+DATA = BASEDIR / "data"
 HEA = DATA / "healthy"
 IMP = DATA / "impaired"
 
-REP = BASE_DIR / "reports"
+REP = BASEDIR / "reports"

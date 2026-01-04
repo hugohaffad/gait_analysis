@@ -484,6 +484,17 @@ for i, joint in enumerate(JOINTS):
     ax.set_xlim(0, 100)
     ax.grid(True, alpha=0.7)
 
+    OT = 13
+    TO = 62
+
+    ax.axvline(OT, color="k", linewidth=1)
+    ax.axvline(TO, color="k", linewidth=1)
+
+    ax.text(OT, ax.get_ylim()[1]*0.95, "OT",
+            ha="center", va="top", fontsize=9)
+    ax.text(TO, ax.get_ylim()[1]*0.95, "TO",
+            ha="center", va="top", fontsize=9)
+
 axes[0].set_ylabel("Angle (°)", fontsize=11)
 axes[0].set_ylim(-20, 40)
 axes[1].set_ylim(0, 80)
@@ -582,70 +593,55 @@ axes[0].legend(loc="upper right", fontsize=10)
 plt.tight_layout()
 plt.savefig(output_dir / "joint_moments.png", dpi=300, bbox_inches='tight')
 plt.close()
-
-# ═══════════════════════════════════════════════════════════════════════════
-# STATISTIQUES
-# ═══════════════════════════════════════════════════════════════════════════
-
-print("\n" + "=" * 70)
-print("📊 STATISTIQUES")
-print("=" * 70)
-
-print("\n1. ASYMÉTRIE ANGULAIRE (amplitude moyenne |R-L|)")
-print("-" * 70)
-print(f"{'Articulation':<12} {'Sain (M±SD)':<20} {'Altéré (M±SD)':<20} {'Δ':<10}")
-print("-" * 70)
-
-for joint in JOINTS:
-    amp_hea = np.abs(asymmetry_healthy[joint]).mean(axis=1)
-    mean_hea = amp_hea.mean()
-    sd_hea = amp_hea.std(ddof=1) if len(amp_hea) > 1 else 0.0
-
-    amp_imp = np.abs(asymmetry_impaired[joint]).mean(axis=1)
-    mean_imp = amp_imp.mean()
-    sd_imp = amp_imp.std(ddof=1) if len(amp_imp) > 1 else 0.0
-
-    delta = mean_imp - mean_hea
-
-    print(f"{joint:<12} {mean_hea:5.2f} ± {sd_hea:4.2f}°      "
-          f"{mean_imp:5.2f} ± {sd_imp:4.2f}°      "
-          f"{delta:+5.2f}°")
-
-print("\n2. MOMENTS ARTICULAIRES (pic moyen)")
-print("-" * 70)
-print(f"{'Articulation':<12} {'Sain (M±SD)':<25} {'Altéré (M±SD)':<25}")
-print("-" * 70)
-
-for joint in JOINTS:
-    # Pic moyen pour chaque essai (moyenne des deux côtés)
-    data_hea_r = np.array(moments_healthy[joint]["right"])
-    data_hea_l = np.array(moments_healthy[joint]["left"])
-    peak_hea = (np.abs(data_hea_r).max(axis=1) + np.abs(data_hea_l).max(axis=1)) / 2
-
-    data_imp_r = np.array(moments_impaired[joint]["right"])
-    data_imp_l = np.array(moments_impaired[joint]["left"])
-    peak_imp = (np.abs(data_imp_r).max(axis=1) + np.abs(data_imp_l).max(axis=1)) / 2
-
-    mean_hea = peak_hea.mean()
-    sd_hea = peak_hea.std(ddof=1) if len(peak_hea) > 1 else 0.0
-
-    mean_imp = peak_imp.mean()
-    sd_imp = peak_imp.std(ddof=1) if len(peak_imp) > 1 else 0.0
-
-    print(f"{joint:<12} {mean_hea:5.2f} ± {sd_hea:4.2f} Nm/kg     "
-          f"{mean_imp:5.2f} ± {sd_imp:4.2f} Nm/kg")
-
-print("\n" + "=" * 70)
-print("✅ ANALYSE TERMINÉE")
-print("=" * 70)
-print(f"\n📂 Résultats dans : {output_dir.absolute()}")
-print("""
-📊 Fichiers générés :
-   CINÉMATIQUE :
-   • 1_angles_articulaires.png    - Angles Hip/Knee/Ankle (Sain vs Altéré)
-   • 2_asymetrie_angles.png        - Asymétrie R-L des angles
-
-   CINÉTIQUE :
-   • 3_moments_sains.png           - Moments articulaires (groupe sain)
-   • 4_moments_alteres.png         - Moments articulaires (groupe altéré)
-""")
+#
+# # ═══════════════════════════════════════════════════════════════════════════
+# # STATISTIQUES
+# # ═══════════════════════════════════════════════════════════════════════════
+#
+# print("\n" + "=" * 70)
+# print("📊 STATISTIQUES")
+# print("=" * 70)
+#
+# print("\n1. ASYMÉTRIE ANGULAIRE (amplitude moyenne |R-L|)")
+# print("-" * 70)
+# print(f"{'Articulation':<12} {'Sain (M±SD)':<20} {'Altéré (M±SD)':<20} {'Δ':<10}")
+# print("-" * 70)
+#
+# for joint in JOINTS:
+#     amp_hea = np.abs(asymmetry_healthy[joint]).mean(axis=1)
+#     mean_hea = amp_hea.mean()
+#     sd_hea = amp_hea.std(ddof=1) if len(amp_hea) > 1 else 0.0
+#
+#     amp_imp = np.abs(asymmetry_impaired[joint]).mean(axis=1)
+#     mean_imp = amp_imp.mean()
+#     sd_imp = amp_imp.std(ddof=1) if len(amp_imp) > 1 else 0.0
+#
+#     delta = mean_imp - mean_hea
+#
+#     print(f"{joint:<12} {mean_hea:5.2f} ± {sd_hea:4.2f}°      "
+#           f"{mean_imp:5.2f} ± {sd_imp:4.2f}°      "
+#           f"{delta:+5.2f}°")
+#
+# print("\n2. MOMENTS ARTICULAIRES (pic moyen)")
+# print("-" * 70)
+# print(f"{'Articulation':<12} {'Sain (M±SD)':<25} {'Altéré (M±SD)':<25}")
+# print("-" * 70)
+#
+# for joint in JOINTS:
+#     # Pic moyen pour chaque essai (moyenne des deux côtés)
+#     data_hea_r = np.array(moments_healthy[joint]["right"])
+#     data_hea_l = np.array(moments_healthy[joint]["left"])
+#     peak_hea = (np.abs(data_hea_r).max(axis=1) + np.abs(data_hea_l).max(axis=1)) / 2
+#
+#     data_imp_r = np.array(moments_impaired[joint]["right"])
+#     data_imp_l = np.array(moments_impaired[joint]["left"])
+#     peak_imp = (np.abs(data_imp_r).max(axis=1) + np.abs(data_imp_l).max(axis=1)) / 2
+#
+#     mean_hea = peak_hea.mean()
+#     sd_hea = peak_hea.std(ddof=1) if len(peak_hea) > 1 else 0.0
+#
+#     mean_imp = peak_imp.mean()
+#     sd_imp = peak_imp.std(ddof=1) if len(peak_imp) > 1 else 0.0
+#
+#     print(f"{joint:<12} {mean_hea:5.2f} ± {sd_hea:4.2f} Nm/kg     "
+#           f"{mean_imp:5.2f} ± {sd_imp:4.2f} Nm/kg")

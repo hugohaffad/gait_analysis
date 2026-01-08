@@ -211,7 +211,6 @@ def kinematics_analysis(file, joints=None):
 def inverse_dynamics(file, joints=None):
     """
     Dynamique inverse : calcul des moments articulaires (Nm/kg)
-
     Retourne :
         dict avec "gc" (0-100%), "left" et "right" (moments normalisés)
     """
@@ -281,92 +280,123 @@ def inverse_dynamics(file, joints=None):
             m_hip = markers_m["HANCHE_D"]
             m_foot = markers_m["PIED_D"]
 
-        # Interpolation des GRF et CoP
+        # Interpolation des GRF et CoP (indices 1=Y, 2=Z)
         cop_y = np.interp(time, fp_time, grw[fp_idx]["P"][:, 1]) / 1000.0
         cop_z = np.interp(time, fp_time, grw[fp_idx]["P"][:, 2]) / 1000.0
         Fy = np.interp(time, fp_time, grw[fp_idx]["F"][:, 1])
         Fz = np.interp(time, fp_time, grw[fp_idx]["F"][:, 2])
 
-        # Cheville (pied)
-        foot_vec = m_foot[:, 1:] - m_ankle[:, 1:]
+        # ========== PIED (calcul à la cheville) ==========
+        # Vecteur du segment pied (cheville -> marqueur pied) dans le plan YZ
+        foot_vec = m_foot[:, 1:] - m_ankle[:, 1:]  # [Y, Z]
         theta_foot = np.arctan2(foot_vec[:, 1], foot_vec[:, 0])
         alpha_foot = compute_derivative(theta_foot, dt, order=2)
 
+        # Centre de masse du pied
         com_foot = m_ankle[:, 1:] + COM_FRAC["Foot"] * foot_vec
-        r_yC_foot = com_foot[:, 0] - m_ankle[:, 1]
-        r_zC_foot = com_foot[:, 1] - m_ankle[:, 2]
 
+        # Accélérations du CoM du pied
         acc_com_foot_y = compute_derivative(com_foot[:, 0], dt, order=2)
         acc_com_foot_z = compute_derivative(com_foot[:, 1], dt, order=2)
 
-        r_yP = cop_y - m_ankle[:, 1]
-        r_zP = cop_z - m_ankle[:, 2]
+        # Bras de levier cheville -> CoM du pied
+        r_y_CoM = com_foot[:, 0] - m_ankle[:, 1]
+        r_z_CoM = com_foot[:, 1] - m_ankle[:, 2]
 
+        # Bras de levier cheville -> CoP
+        r_y_CoP = cop_y - m_ankle[:, 1]
+        r_z_CoP = cop_z - m_ankle[:, 2]
+
+        # Équation de Newton : R_ankle + GRF - m*g = m*a
+        # En Z : R_z + Fz - m*g = m*a_z  =>  R_z = m*a_z + m*g - Fz
+        R_ankle_y = ANTHROPO["Foot"]["mass"] * acc_com_foot_y - Fy
+        R_ankle_z = ANTHROPO["Foot"]["mass"] * acc_com_foot_z + ANTHROPO["Foot"]["mass"] * GRAVITY - Fz
+
+        # Moment à la cheville autour de X : M_x = r_y * F_z - r_z * F_y
+        # ΣM = I*α
+        # M_ankle + M_GRF + M_weight + M_inertia = I*α
         M_ankle = (
-                          ANTHROPO["Foot"]["inertia"] * alpha_foot +
-                          ANTHROPO["Foot"]["mass"] * (r_yC_foot * acc_com_foot_z - r_zC_foot * acc_com_foot_y) +
-                          ANTHROPO["Foot"]["mass"] * GRAVITY * r_yC_foot +
-                          (r_yP * Fz - r_zP * Fy)
-                  ) / BODY_MASS
+            ANTHROPO["Foot"]["inertia"] * alpha_foot -
+            ANTHROPO["Foot"]["mass"] * (r_y_CoM * acc_com_foot_z - r_z_CoM * acc_com_foot_y) -
+            ANTHROPO["Foot"]["mass"] * GRAVITY * r_y_CoM +
+            (r_y_CoP * Fz - r_z_CoP * Fy)
+        ) / BODY_MASS
 
-        # GENOU (jambe)
-        # Réactions à la cheville
-        R_A_y = ANTHROPO["Foot"]["mass"] * acc_com_foot_y - Fy
-        R_A_z = ANTHROPO["Foot"]["mass"] * acc_com_foot_z + ANTHROPO["Foot"]["mass"] * GRAVITY - Fz
-
-        Fdist_y = -R_A_y
-        Fdist_z = -R_A_z
-
+        # ========== JAMBE (calcul au genou) ==========
+        # Vecteur du segment jambe (genou -> cheville)
         leg_vec = m_ankle[:, 1:] - m_knee[:, 1:]
         theta_leg = np.arctan2(leg_vec[:, 1], leg_vec[:, 0])
         alpha_leg = compute_derivative(theta_leg, dt, order=2)
 
+        # Centre de masse de la jambe
         com_leg = m_knee[:, 1:] + COM_FRAC["Leg"] * leg_vec
-        r_yC_leg = com_leg[:, 0] - m_knee[:, 1]
-        r_zC_leg = com_leg[:, 1] - m_knee[:, 2]
 
+        # Accélérations du CoM de la jambe
         acc_com_leg_y = compute_derivative(com_leg[:, 0], dt, order=2)
         acc_com_leg_z = compute_derivative(com_leg[:, 1], dt, order=2)
 
-        r_yA_leg = m_ankle[:, 1] - m_knee[:, 1]
-        r_zA_leg = m_ankle[:, 2] - m_knee[:, 2]
+        # Bras de levier genou -> CoM de la jambe
+        r_y_CoM_leg = com_leg[:, 0] - m_knee[:, 1]
+        r_z_CoM_leg = com_leg[:, 1] - m_knee[:, 2]
 
+        # Bras de levier genou -> cheville
+        r_y_ankle = m_ankle[:, 1] - m_knee[:, 1]
+        r_z_ankle = m_ankle[:, 2] - m_knee[:, 2]
+
+        # Forces distales (action-réaction)
+        F_dist_y = -R_ankle_y
+        F_dist_z = -R_ankle_z
+
+        # Forces de réaction au genou
+        R_knee_y = ANTHROPO["Leg"]["mass"] * acc_com_leg_y - F_dist_y
+        R_knee_z = ANTHROPO["Leg"]["mass"] * acc_com_leg_z + ANTHROPO["Leg"]["mass"] * GRAVITY - F_dist_z
+
+        # Moment au genou autour de X
         M_knee = (
-                         ANTHROPO["Leg"]["inertia"] * alpha_leg +
-                         ANTHROPO["Leg"]["mass"] * (r_yC_leg * acc_com_leg_z - r_zC_leg * acc_com_leg_y) +
-                         ANTHROPO["Leg"]["mass"] * GRAVITY * r_yC_leg +
-                         -(r_yA_leg * Fdist_z - r_zA_leg * Fdist_y) +
-                         -M_ankle * BODY_MASS  # Moment distal
-                 ) / BODY_MASS
+            ANTHROPO["Leg"]["inertia"] * alpha_leg -
+            ANTHROPO["Leg"]["mass"] * (r_y_CoM_leg * acc_com_leg_z - r_z_CoM_leg * acc_com_leg_y) -
+            ANTHROPO["Leg"]["mass"] * GRAVITY * r_y_CoM_leg +
+            (r_y_ankle * F_dist_z - r_z_ankle * F_dist_y) +
+            M_ankle * BODY_MASS
+        ) / BODY_MASS
 
-        # HANCHE (cuisse)
-        R_K_y = ANTHROPO["Leg"]["mass"] * acc_com_leg_y + Fdist_y
-        R_K_z = ANTHROPO["Leg"]["mass"] * acc_com_leg_z + ANTHROPO["Leg"]["mass"] * GRAVITY + Fdist_z
-
-        FdistK_y = -R_K_y
-        FdistK_z = -R_K_z
-
+        # ========== CUISSE (calcul à la hanche) ==========
+        # Vecteur du segment cuisse (hanche -> genou)
         thigh_vec = m_knee[:, 1:] - m_hip[:, 1:]
         theta_thigh = np.arctan2(thigh_vec[:, 1], thigh_vec[:, 0])
         alpha_thigh = compute_derivative(theta_thigh, dt, order=2)
 
+        # Centre de masse de la cuisse
         com_thigh = m_hip[:, 1:] + COM_FRAC["Thigh"] * thigh_vec
-        r_yC_thigh = com_thigh[:, 0] - m_hip[:, 1]
-        r_zC_thigh = com_thigh[:, 1] - m_hip[:, 2]
 
+        # Accélérations du CoM de la cuisse
         acc_com_thigh_y = compute_derivative(com_thigh[:, 0], dt, order=2)
         acc_com_thigh_z = compute_derivative(com_thigh[:, 1], dt, order=2)
 
-        r_yK_thigh = m_knee[:, 1] - m_hip[:, 1]
-        r_zK_thigh = m_knee[:, 2] - m_hip[:, 2]
+        # Bras de levier hanche -> CoM de la cuisse
+        r_y_CoM_thigh = com_thigh[:, 0] - m_hip[:, 1]
+        r_z_CoM_thigh = com_thigh[:, 1] - m_hip[:, 2]
 
+        # Bras de levier hanche -> genou
+        r_y_knee = m_knee[:, 1] - m_hip[:, 1]
+        r_z_knee = m_knee[:, 2] - m_hip[:, 2]
+
+        # Forces distales (action-réaction)
+        F_dist_knee_y = -R_knee_y
+        F_dist_knee_z = -R_knee_z
+
+        # Forces de réaction à la hanche
+        R_hip_y = ANTHROPO["Thigh"]["mass"] * acc_com_thigh_y - F_dist_knee_y
+        R_hip_z = ANTHROPO["Thigh"]["mass"] * acc_com_thigh_z + ANTHROPO["Thigh"]["mass"] * GRAVITY - F_dist_knee_z
+
+        # Moment à la hanche autour de X
         M_hip = (
-                        ANTHROPO["Thigh"]["inertia"] * alpha_thigh +
-                        ANTHROPO["Thigh"]["mass"] * (r_yC_thigh * acc_com_thigh_z - r_zC_thigh * acc_com_thigh_y) +
-                        ANTHROPO["Thigh"]["mass"] * GRAVITY * r_yC_thigh +
-                        -(r_yK_thigh * FdistK_z - r_zK_thigh * FdistK_y) +
-                        -M_knee * BODY_MASS
-                ) / BODY_MASS
+            ANTHROPO["Thigh"]["inertia"] * alpha_thigh -
+            ANTHROPO["Thigh"]["mass"] * (r_y_CoM_thigh * acc_com_thigh_z - r_z_CoM_thigh * acc_com_thigh_y) -
+            ANTHROPO["Thigh"]["mass"] * GRAVITY * r_y_CoM_thigh +
+            (r_y_knee * F_dist_knee_z - r_z_knee * F_dist_knee_y) +
+            M_knee * BODY_MASS
+        ) / BODY_MASS
 
         moments[side] = {"Ankle": M_ankle, "Knee": M_knee, "Hip": M_hip}
 
@@ -444,7 +474,7 @@ for joint in JOINTS:
 gc_kin_moments, moments_healthy = analyze_group(HEA, inverse_dynamics, JOINTS)
 _, moments_impaired = analyze_group(IMP, inverse_dynamics, JOINTS)
 
-# Asymetrie
+# Asymétrie
 diff_imp_vs_hea = {}
 for joint in JOINTS:
     hea_R = np.array(angles_healthy[joint]["right"]).mean(axis=0)
@@ -526,10 +556,21 @@ for i, joint in enumerate(JOINTS):
     ax.axhline(0, color="k", linestyle=":", linewidth=1.5)
     ax.set_title(f"{joint}", fontsize=12, fontweight="bold")
     ax.set_xlabel("Gait cycle (%)", fontsize=11)
-    ax.set_ylabel("Asymmetry (°)", fontsize=11)
+    ax.set_ylabel("Δ angle (Right - Left) (°)", fontsize=11)
     ax.set_xlim(0, 100)
     ax.set_ylim(-30, 30)
     ax.grid(True, alpha=0.7)
+
+    OT = 13
+    TO = 62
+
+    ax.axvline(OT, color="k", linewidth=1)
+    ax.axvline(TO, color="k", linewidth=1)
+
+    ax.text(OT, ax.get_ylim()[1]*0.95, "OT",
+            ha="center", va="top", fontsize=9)
+    ax.text(TO, ax.get_ylim()[1]*0.95, "TO",
+            ha="center", va="top", fontsize=9)
 
 axes[0].legend(loc="upper right", fontsize=10)
 plt.tight_layout()
@@ -555,6 +596,17 @@ for i, joint in enumerate(JOINTS):
     ax.set_xlim(0, 100)
     ax.set_ylim(-20, 20)
     ax.grid(True, alpha=0.7)
+
+    OT = 13
+    TO = 62
+
+    ax.axvline(OT, color="k", linewidth=1)
+    ax.axvline(TO, color="k", linewidth=1)
+
+    ax.text(OT, ax.get_ylim()[1]*0.95, "OT",
+            ha="center", va="top", fontsize=9)
+    ax.text(TO, ax.get_ylim()[1]*0.95, "TO",
+            ha="center", va="top", fontsize=9)
 
 axes[0].legend(loc="upper right", fontsize=10)
 plt.tight_layout()
@@ -587,13 +639,24 @@ for i, joint in enumerate(JOINTS):
     ax.set_xlim(0, 100)
     ax.grid(True, alpha=0.7)
 
+    OT = 13
+    TO = 62
+
+    ax.axvline(OT, color="k", linewidth=1)
+    ax.axvline(TO, color="k", linewidth=1)
+
+    ax.text(OT, ax.get_ylim()[1]*0.95, "OT",
+            ha="center", va="top", fontsize=9)
+    ax.text(TO, ax.get_ylim()[1]*0.95, "TO",
+            ha="center", va="top", fontsize=9)
+
 axes[0].set_ylabel("Moment (Nm/kg)", fontsize=11)
 axes[0].legend(loc="upper right", fontsize=10)
 
 plt.tight_layout()
 plt.savefig(output_dir / "joint_moments.png", dpi=300, bbox_inches='tight')
 plt.close()
-#
+
 # # ═══════════════════════════════════════════════════════════════════════════
 # # STATISTIQUES
 # # ═══════════════════════════════════════════════════════════════════════════
